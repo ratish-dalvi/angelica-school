@@ -13,10 +13,23 @@ class GeminiClient:
 
     def _build_client(self):
         """Build OpenAI client configured for Gemini API"""
-        return OpenAI(
-            base_url=os.environ["OPENAI_API_BASE"],
-            api_key=os.environ["OPENAI_API_KEY"],
-        )
+        try:
+            # Check for required environment variables
+            api_base = os.environ.get("OPENAI_API_BASE")
+            api_key = os.environ.get("OPENAI_API_KEY")
+            
+            if not api_base or not api_key:
+                raise ValueError("Missing required environment variables: OPENAI_API_BASE and/or OPENAI_API_KEY")
+            
+            # Create client with minimal configuration to avoid compatibility issues
+            client = OpenAI(
+                base_url=api_base,
+                api_key=api_key,
+            )
+            return client
+        except Exception as e:
+            print(f"Error building Gemini client: {e}")
+            raise
 
     def ask_gemini(self, question: str) -> str:
         """Send a simple text question to Gemini"""
@@ -37,4 +50,4 @@ class GeminiClient:
             return response.choices[0].message.content.strip()
         except Exception as e:
             print(f"Error calling Gemini API: {e}")
-            return ""
+            return f"Error generating letter: {str(e)}"

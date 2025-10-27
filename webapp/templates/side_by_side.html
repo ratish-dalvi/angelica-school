@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Letter Generator - {{ student.name }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        .form-panel, .letter-panel {
+            flex: 1;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            min-height: calc(100vh - 40px);
+        }
+        .form-panel {
+            padding: 30px;
+            max-width: 600px;
+        }
+        .letter-panel {
+            padding: 20px;
+        }
+        h1, h2 {
+            color: #333;
+            margin-top: 0;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+            font-size: 14px;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        textarea {
+            height: 80px;
+            resize: vertical;
+        }
+        .large-textarea {
+            height: 100px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .new-letter-button {
+            display: block;
+            background-color: #6c757d;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            text-decoration: none;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        .new-letter-button:hover {
+            background-color: #5a6268;
+            color: white;
+            text-decoration: none;
+        }
+        .copy-button {
+            background-color: #28a745;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        .copy-button:hover {
+            background-color: #218838;
+        }
+        .section-header {
+            color: #666;
+            font-size: 16px;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 5px;
+        }
+        .letter-container {
+            background-color: #fafafa;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 25px;
+            font-family: 'Times New Roman', serif;
+            line-height: 1.6;
+            white-space: pre-line;
+            height: calc(100vh - 180px);
+            overflow-y: auto;
+        }
+        .success-message {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            display: none;
+        }
+        .generating {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .generating:hover {
+            background-color: #6c757d;
+        }
+        @media (max-width: 1200px) {
+            .container {
+                flex-direction: column;
+            }
+            .form-panel, .letter-panel {
+                max-width: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Form Panel -->
+        <div class="form-panel">
+            <h1>Letter Generator</h1>
+            
+            <form id="letterForm" action="/generate" method="POST">
+                <div class="section-header">Basic Information</div>
+                
+                <div class="form-group">
+                    <label for="name">Student Name:</label>
+                    <input type="text" id="name" name="name" required value="{{ student.name }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="area_of_interest">Area of Interest:</label>
+                    <input type="text" id="area_of_interest" name="area_of_interest" required value="{{ student.area_of_interest }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="year">Year:</label>
+                    <input type="text" id="year" name="year" required value="{{ student.year }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="graduation_date">Graduation Date:</label>
+                    <input type="text" id="graduation_date" name="graduation_date" required value="{{ student.graduation_date }}">
+                </div>
+                
+                <div class="section-header">Student Characteristics</div>
+                
+                <div class="form-group">
+                    <label for="academic_characteristics">Academic Characteristics:</label>
+                    <textarea id="academic_characteristics" name="academic_characteristics" class="large-textarea" required>{{ student.academic_characteristics }}</textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="social_emotional_characteristics">Social/Emotional Characteristics:</label>
+                    <textarea id="social_emotional_characteristics" name="social_emotional_characteristics" class="large-textarea" required>{{ student.social_emotional_characteristics }}</textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="other_notable_aspects">Other Notable Aspects:</label>
+                    <textarea id="other_notable_aspects" name="other_notable_aspects" class="large-textarea" required>{{ student.other_notable_aspects }}</textarea>
+                </div>
+                
+                <div class="section-header">Future Goals</div>
+                
+                <div class="form-group">
+                    <label for="post_secondary_goals">Post-Secondary Goals:</label>
+                    <textarea id="post_secondary_goals" name="post_secondary_goals" required>{{ student.post_secondary_goals }}</textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="suitability_for_goals">Why They Are Well Suited:</label>
+                    <textarea id="suitability_for_goals" name="suitability_for_goals" required>{{ student.suitability_for_goals }}</textarea>
+                </div>
+                
+                <button type="submit" id="generateBtn">Regenerate Letter</button>
+                <a href="/" class="new-letter-button">Start New Letter</a>
+            </form>
+        </div>
+
+        <!-- Letter Panel -->
+        <div class="letter-panel">
+            <h2>Generated Letter for {{ student.name }}</h2>
+            <button class="copy-button" onclick="copyLetter()">Copy Letter to Clipboard</button>
+            
+            <div class="letter-container" id="letterContent">{{ letter }}</div>
+            
+            <div id="successMessage" class="success-message">
+                Letter copied to clipboard successfully!
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function copyLetter() {
+            const letterContent = document.getElementById('letterContent').textContent;
+            
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(letterContent).then(function() {
+                    showSuccessMessage();
+                }).catch(function(err) {
+                    console.error('Could not copy text: ', err);
+                    fallbackCopy(letterContent);
+                });
+            } else {
+                fallbackCopy(letterContent);
+            }
+        }
+        
+        function fallbackCopy(text) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+                showSuccessMessage();
+            } catch (err) {
+                console.error('Fallback copy failed: ', err);
+                alert('Could not copy letter. Please select and copy manually.');
+            }
+            
+            document.body.removeChild(textArea);
+        }
+        
+        function showSuccessMessage() {
+            const message = document.getElementById('successMessage');
+            message.style.display = 'block';
+            setTimeout(function() {
+                message.style.display = 'none';
+            }, 3000);
+        }
+
+        // Handle form submission with loading state
+        document.getElementById('letterForm').addEventListener('submit', function() {
+            const btn = document.getElementById('generateBtn');
+            btn.textContent = 'Generating...';
+            btn.classList.add('generating');
+            btn.disabled = true;
+        });
+    </script>
+</body>
+</html>

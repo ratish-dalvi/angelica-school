@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Letter of Recommendation Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        .large-textarea {
+            height: 120px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .section-header {
+            color: #666;
+            font-size: 18px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Letter of Recommendation Generator</h1>
+        <p style="text-align: center; color: #666; margin-bottom: 30px;">
+            Fill out the form below to generate a personalized letter of recommendation in Angelica Goff's voice.
+        </p>
+        
+        <form action="/generate" method="POST">
+            <div class="section-header">Basic Information</div>
+            
+            <div class="form-group">
+                <label for="name">Student Name:</label>
+                <input type="text" id="name" name="name" required placeholder="e.g., Jannatul Urmi">
+            </div>
+            
+            <div class="form-group">
+                <label for="area_of_interest">Area of Interest:</label>
+                <input type="text" id="area_of_interest" name="area_of_interest" required placeholder="e.g., Astrophysics, Computer Science">
+            </div>
+            
+            <div class="form-group">
+                <label for="year">Year:</label>
+                <input type="text" id="year" name="year" required placeholder="e.g., Senior">
+            </div>
+            
+            <div class="form-group">
+                <label for="graduation_date">Graduation Date:</label>
+                <input type="text" id="graduation_date" name="graduation_date" required placeholder="e.g., June 2026">
+            </div>
+            
+            <div class="section-header">Student Characteristics</div>
+            
+            <div class="form-group">
+                <label for="academic_characteristics">Academic Characteristics:</label>
+                <textarea id="academic_characteristics" name="academic_characteristics" class="large-textarea" required placeholder="Describe academic performance, GPA, class rank, curiosity, specific achievements, etc."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="social_emotional_characteristics">Social/Emotional Characteristics:</label>
+                <textarea id="social_emotional_characteristics" name="social_emotional_characteristics" class="large-textarea" required placeholder="Describe personality, leadership, communication skills, empathy, growth, etc."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="other_notable_aspects">Other Notable Aspects:</label>
+                <textarea id="other_notable_aspects" name="other_notable_aspects" class="large-textarea" required placeholder="Special memories, life events, unique circumstances, cultural background, etc."></textarea>
+            </div>
+            
+            <div class="section-header">Future Goals</div>
+            
+            <div class="form-group">
+                <label for="post_secondary_goals">Post-Secondary Goals:</label>
+                <textarea id="post_secondary_goals" name="post_secondary_goals" required placeholder="What does the student want to study and achieve in college?"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="suitability_for_goals">Why They Are Well Suited for Their Goals:</label>
+                <textarea id="suitability_for_goals" name="suitability_for_goals" required placeholder="What qualities, experiences, and skills make them perfect for their chosen path?"></textarea>
+            </div>
+            
+            <button type="submit">Generate Letter of Recommendation</button>
+        </form>
+    </div>
+</body>
+</html>

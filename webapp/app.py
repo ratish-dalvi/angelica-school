@@ -86,4 +86,8 @@ def generate_letter():
         return f"Error generating letter: {str(e)}", 500
 
 if __name__ == '__main__':
-    app.run(debug=True, host='localhost', port=5000)
+    # Get port from environment variable or default to 5000 for local development
+    port = int(os.environ.get('PORT', 5000))
+    # Bind to 0.0.0.0 for production (Render) or localhost for local development
+    host = '0.0.0.0' if os.environ.get('PORT') else 'localhost'
+    app.run(debug=True, host=host, port=port)

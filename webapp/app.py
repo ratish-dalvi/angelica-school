@@ -15,7 +15,7 @@ def load_system_prompt():
 
 def create_recommendation_prompt(system_prompt, student_data):
     """Create the comprehensive prompt for letter generation"""
-    return f"""
+    base_prompt = f"""
 {system_prompt}
 
 Now, please write a professional letter of recommendation for {student_data['name']} who is a {student_data['year']} student graduating in {student_data['graduation_date']} and is interested in studying {student_data['area_of_interest']}.
@@ -40,6 +40,17 @@ WHY THEY ARE WELL SUITED FOR THOSE GOALS:
 Write this letter in Angelica's authentic voice, incorporating her typical phrasing, structure, and warmth. Include the proper school header and signature block. Make the letter feel genuine and personal, as if Angelica herself wrote it based on her deep knowledge of the student.
 """
 
+    # Add Angelica's special instructions if provided
+    angelica_instructions = student_data.get('angelica_instructions', '').strip()
+    if angelica_instructions:
+        base_prompt += f"""
+
+*** OVERRIDE: IMPORTANT INSTRUCTIONS FROM ANGELICA ***
+{angelica_instructions}
+*** END SPECIAL INSTRUCTIONS ***"""
+
+    return base_prompt
+
 @app.route('/')
 def home():
     """Home page with student form"""
@@ -63,7 +74,8 @@ def generate_letter():
             'social_emotional_characteristics': request.form['social_emotional_characteristics'],
             'other_notable_aspects': request.form['other_notable_aspects'],
             'post_secondary_goals': request.form['post_secondary_goals'],
-            'suitability_for_goals': request.form['suitability_for_goals']
+            'suitability_for_goals': request.form['suitability_for_goals'],
+            'angelica_instructions': request.form.get('angelica_instructions', '')
         }
         
         # Load system prompt
@@ -74,6 +86,14 @@ def generate_letter():
         # Generate letter
         client = GeminiClient()
         prompt = create_recommendation_prompt(system_prompt, student_data)
+        
+        # Print the full prompt to terminal for debugging/review
+        print("\n" + "="*80)
+        print("GENERATED PROMPT FOR AI:")
+        print("="*80)
+        print(prompt)
+        print("="*80 + "\n")
+        
         letter = client.ask_gemini(prompt)
         
         if not letter or letter.startswith("Error"):

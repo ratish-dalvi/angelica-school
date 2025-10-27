@@ -68,6 +68,22 @@
             border-bottom: 2px solid #eee;
             padding-bottom: 5px;
         }
+        .angelica-section {
+            background-color: #f8f9fa;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .angelica-section .section-header {
+            color: #007bff;
+            font-weight: bold;
+            margin-top: 0;
+            border-bottom: 2px solid #007bff;
+        }
+        .angelica-section textarea {
+            border: 2px solid #007bff;
+        }
     </style>
 </head>
 <body>
@@ -127,6 +143,15 @@
             <div class="form-group">
                 <label for="suitability_for_goals">Why They Are Well Suited for Their Goals:</label>
                 <textarea id="suitability_for_goals" name="suitability_for_goals" required placeholder="What qualities, experiences, and skills make them perfect for their chosen path?"></textarea>
+            </div>
+            
+            <div class="angelica-section">
+                <div class="section-header">Angelica's Special Instructions (Optional)</div>
+                
+                <div class="form-group">
+                    <label for="angelica_instructions">Angelica's Instructions:</label>
+                    <textarea id="angelica_instructions" name="angelica_instructions" placeholder="Any specific instructions from Angelica about what to emphasize, specific phrases to include, or special requirements for this letter..."></textarea>
+                </div>
             </div>
             
             <button type="submit">Generate Letter of Recommendation</button>

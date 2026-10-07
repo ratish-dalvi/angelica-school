@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Writing Style · Recommendation Letters{% endblock %}
+
+{% block nav %}
+<a href="/" class="btn btn-ghost">← Back to letters</a>
+{% endblock %}
+
+{% block content %}
+<main class="style-page">
+    <div class="card">
+        <h1>Writing style</h1>
+        <p class="lede">This guide goes to the AI with every letter. Update it whenever your style changes. Suggestions you accept in the chat are added under “Notes from letter feedback”.</p>
+
+        <div class="alert alert-info">
+            Saved changes are lost when the app restarts or redeploys. Download a copy when you're done for the season.
+        </div>
+
+        <label for="styleText" class="sr-only">Writing style</label>
+        <textarea id="styleText" class="style-editor" spellcheck="true">{{ content }}</textarea>
+
+        <div class="style-actions">
+            <span id="saveStatus" class="status" role="status"></span>
+            <button type="button" class="btn btn-secondary" id="downloadStyle">Download .md</button>
+            <button type="button" class="btn btn-primary" id="saveStyle" disabled>Save</button>
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const editor = document.getElementById('styleText');
+    const saveBtn = document.getElementById('saveStyle');
+    const status = document.getElementById('saveStatus');
+    let savedContent = editor.value;
+
+    function isDirty() {
+        return editor.value !== savedContent;
+    }
+
+    function updateStatus() {
+        saveBtn.disabled = !isDirty();
+        if (isDirty()) {
+            status.textContent = 'Unsaved changes';
+            status.className = 'status status-warn';
+        }
+    }
+
+    async function save() {
+        if (!isDirty()) return;
+        saveBtn.disabled = true;
+        status.textContent = 'Saving…';
+        status.className = 'status';
+        try {
+            const res = await fetch('/api/style', {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({content: editor.value}),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || `Save failed (${res.status})`);
+            savedContent = editor.value;
+            status.textContent = 'Saved';
+            status.className = 'status status-ok';
+        } catch (err) {
+            status.textContent = err.message;
+            status.className = 'status status-error';
+            saveBtn.disabled = false;
+        }
+    }
+
+    editor.addEventListener('input', updateStatus);
+    saveBtn.addEventListener('click', save);
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            e.preventDefault();
+            save();
+        }
+    });
+    window.addEventListener('beforeunload', (e) => {
+        if (isDirty()) e.preventDefault();
+    });
+
+    document.getElementById('downloadStyle').addEventListener('click', () => {
+        const blob = new Blob([editor.value], {type: 'text/markdown;charset=utf-8'});
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'writing_style.md';
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    });
+</script>
+{% endblock %}

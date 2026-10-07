@@ -1,109 +1,238 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, jsonify, render_template, request
 import os
+import re
+import tempfile
 from gemini_client import GeminiClient
 
 app = Flask(__name__)
 
-def load_system_prompt():
-    """Load the system prompt from file"""
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SYSTEM_PROMPT_PATH = os.path.join(BASE_DIR, 'system_prompt.txt')
+WRITING_STYLE_PATH = os.path.join(BASE_DIR, 'writing_style.md')
+
+# Style suggestions accepted from the chat are collected under this heading
+FEEDBACK_HEADING = '## Notes from letter feedback'
+
+REQUIRED_FIELDS = [
+    'name', 'area_of_interest', 'year', 'graduation_date',
+    'academic_characteristics', 'social_emotional_characteristics', 'other_notable_aspects',
+    'post_secondary_goals', 'suitability_for_goals',
+]
+OPTIONAL_FIELDS = ['pronouns', 'angelica_instructions']
+
+# How many earlier chat turns to send back to the model
+MAX_HISTORY_MESSAGES = 20
+
+CHAT_INSTRUCTIONS = """# YOUR ROLE IN THIS CONVERSATION
+
+You've already written a draft of this student's letter, and Angelica is now reviewing it with you. She may ask for changes, ask a question, or give general feedback. Each of her messages comes with the current version of the letter, which may include edits she made herself; keep those edits unless she asks otherwise.
+
+Answer in this exact format, using these tags:
+
+<reply>
+Your reply to Angelica: one to three sentences, plain text. If you changed the letter, say briefly what you changed. If her request is unclear, ask a question instead of guessing.
+</reply>
+<letter>
+The complete revised letter, from header to signature. Include this only when you changed the letter; leave the tag out entirely otherwise.
+</letter>
+<style_suggestion>
+One concise guideline, written as an instruction (for example: "Keep letters to one page."), to add to her writing style guide. Include this only when her feedback is a general preference about how she writes that would apply to letters for other students too, not a fact or request specific to this student, and the style guide doesn't already say it. Always include it when she explicitly asks to update her writing style. When you include it, mention in your reply that you've suggested adding it to her writing style. Leave the tag out entirely otherwise.
+</style_suggestion>"""
+
+
+def read_text(path):
+    with open(path, 'r', encoding='utf-8') as file:
+        return file.read().strip()
+
+
+def read_writing_style():
     try:
-        with open('system_prompt.txt', 'r', encoding='utf-8') as file:
-            return file.read().strip()
-    except Exception as e:
-        print(f"Error reading system prompt file: {e}")
-        return ""
+        return read_text(WRITING_STYLE_PATH)
+    except FileNotFoundError:
+        return ''
 
-def create_recommendation_prompt(system_prompt, student_data):
-    """Create the comprehensive prompt for letter generation"""
-    base_prompt = f"""
-{system_prompt}
 
-Now, please write a professional letter of recommendation for {student_data['name']} who is a {student_data['year']} student graduating in {student_data['graduation_date']} and is interested in studying {student_data['area_of_interest']}.
+def write_writing_style(content):
+    # Write to a temp file and swap it in, so a crash mid-write can't leave a truncated style guide
+    fd, tmp_path = tempfile.mkstemp(dir=BASE_DIR, suffix='.tmp')
+    with os.fdopen(fd, 'w', encoding='utf-8') as file:
+        file.write(content.strip() + '\n')
+    os.replace(tmp_path, WRITING_STYLE_PATH)
 
-Here are the key details about the student organized into 5 sections:
+
+def add_style_note(style, note):
+    """Add a bullet to the feedback-notes section, creating the section if needed"""
+    note = ' '.join(note.split())
+    start = style.find(FEEDBACK_HEADING)
+    if start == -1:
+        return f"{style}\n\n{FEEDBACK_HEADING}\n\n- {note}"
+    # Insert at the end of the section, before the next heading if Angelica added one after it
+    end = style.find('\n#', start + len(FEEDBACK_HEADING))
+    if end == -1:
+        end = len(style)
+    return f"{style[:end].rstrip()}\n- {note}\n{style[end:]}"
+
+
+def build_system_prompt():
+    return f"{read_text(SYSTEM_PROMPT_PATH)}\n\n# ANGELICA'S WRITING STYLE GUIDE\n\n{read_writing_style()}"
+
+
+def parse_student(data):
+    """Pull the student fields out of a request body. Returns (student, error)."""
+    if not isinstance(data, dict):
+        return None, 'Missing student details.'
+    student = {field: str(data.get(field) or '').strip() for field in REQUIRED_FIELDS + OPTIONAL_FIELDS}
+    missing = [field for field in REQUIRED_FIELDS if not student[field]]
+    if missing:
+        return None, f"Missing required fields: {', '.join(missing)}"
+    return student, None
+
+
+def describe_student(student):
+    """Format the student's details for the prompt"""
+    pronouns = student['pronouns'] or "not given (use the student's name and they/them)"
+    description = f"""Name: {student['name']}
+Pronouns: {pronouns}
+Year: {student['year']}
+Graduation date: {student['graduation_date']}
+Area of interest: {student['area_of_interest']}
 
 ACADEMIC CHARACTERISTICS:
-{student_data['academic_characteristics']}
+{student['academic_characteristics']}
 
 SOCIAL/EMOTIONAL CHARACTERISTICS:
-{student_data['social_emotional_characteristics']}
+{student['social_emotional_characteristics']}
 
 OTHER NOTABLE ASPECTS:
-{student_data['other_notable_aspects']}
+{student['other_notable_aspects']}
 
 POST-SECONDARY GOALS:
-{student_data['post_secondary_goals']}
+{student['post_secondary_goals']}
 
 WHY THEY ARE WELL SUITED FOR THOSE GOALS:
-{student_data['suitability_for_goals']}
+{student['suitability_for_goals']}"""
 
-Write this letter in Angelica's authentic voice, incorporating her typical phrasing, structure, and warmth. Include the proper school header and signature block. Make the letter feel genuine and personal, as if Angelica herself wrote it based on her deep knowledge of the student.
-"""
+    if student['angelica_instructions']:
+        description += f"""
 
-    # Add Angelica's special instructions if provided
-    angelica_instructions = student_data.get('angelica_instructions', '').strip()
-    if angelica_instructions:
-        base_prompt += f"""
-
-*** OVERRIDE: IMPORTANT INSTRUCTIONS FROM ANGELICA ***
-{angelica_instructions}
+*** SPECIAL INSTRUCTIONS FROM ANGELICA FOR THIS LETTER ***
+{student['angelica_instructions']}
 *** END SPECIAL INSTRUCTIONS ***"""
 
-    return base_prompt
+    return description
+
+
+def extract_tag(text, tag):
+    match = re.search(rf'<{tag}>(.*?)</{tag}>', text, re.DOTALL)
+    return match.group(1).strip() if match else ''
+
+
+def parse_chat_response(text):
+    reply = extract_tag(text, 'reply')
+    letter = extract_tag(text, 'letter')
+    style_suggestion = extract_tag(text, 'style_suggestion')
+    if not reply:
+        if letter:
+            reply = "I've updated the letter."
+        elif not style_suggestion:
+            # The model ignored the format; show whatever it said as the reply
+            reply = text.strip()
+    return {
+        'reply': reply,
+        'letter': letter or None,
+        'style_suggestion': style_suggestion or None,
+    }
+
 
 @app.route('/')
 def home():
-    """Home page with student form"""
-    return render_template('form.html')
+    """Form for a new letter, and the chat + letter workspace once one is generated"""
+    return render_template('index.html')
 
-@app.route('/generate', methods=['POST'])
-def generate_letter():
-    """Generate and display the recommendation letter"""
+
+@app.route('/style')
+def style_page():
+    """View and edit Angelica's writing style guide"""
+    return render_template('style.html', content=read_writing_style())
+
+
+@app.post('/api/generate')
+def api_generate():
+    """Write the first draft of a letter"""
+    student, error = parse_student((request.get_json(silent=True) or {}).get('student'))
+    if error:
+        return jsonify(error=error), 400
+
+    prompt = f"""Write a letter of recommendation for this student.
+
+{describe_student(student)}
+
+Return only the letter, with nothing before or after it."""
+
     try:
-        # Check environment variables first
-        if not os.environ.get("OPENAI_API_KEY") or not os.environ.get("OPENAI_API_BASE"):
-            return "Error: Missing required environment variables OPENAI_API_KEY and/or OPENAI_API_BASE", 500
-        
-        # Get form data
-        student_data = {
-            'name': request.form['name'],
-            'area_of_interest': request.form['area_of_interest'],
-            'year': request.form['year'],
-            'graduation_date': request.form['graduation_date'],
-            'academic_characteristics': request.form['academic_characteristics'],
-            'social_emotional_characteristics': request.form['social_emotional_characteristics'],
-            'other_notable_aspects': request.form['other_notable_aspects'],
-            'post_secondary_goals': request.form['post_secondary_goals'],
-            'suitability_for_goals': request.form['suitability_for_goals'],
-            'angelica_instructions': request.form.get('angelica_instructions', '')
-        }
-        
-        # Load system prompt
-        system_prompt = load_system_prompt()
-        if not system_prompt:
-            return "Error: Could not load system prompt", 500
-        
-        # Generate letter
-        client = GeminiClient()
-        prompt = create_recommendation_prompt(system_prompt, student_data)
-        
-        # Print the full prompt to terminal for debugging/review
-        print("\n" + "="*80)
-        print("GENERATED PROMPT FOR AI:")
-        print("="*80)
-        print(prompt)
-        print("="*80 + "\n")
-        
-        letter = client.ask_gemini(prompt)
-        
-        if not letter or letter.startswith("Error"):
-            return f"Failed to generate letter: {letter}", 500
-        
-        return render_template('side_by_side.html', student=student_data, letter=letter)
-        
+        letter = GeminiClient().complete([
+            {'role': 'system', 'content': build_system_prompt()},
+            {'role': 'user', 'content': prompt},
+        ])
     except Exception as e:
-        print(f"Full error details: {e}")
-        return f"Error generating letter: {str(e)}", 500
+        app.logger.exception('Letter generation failed')
+        return jsonify(error=f'Could not generate the letter: {e}'), 502
+
+    return jsonify(letter=letter)
+
+
+@app.post('/api/chat')
+def api_chat():
+    """Respond to Angelica's feedback, revising the letter if she asked for changes"""
+    data = request.get_json(silent=True) or {}
+    student, error = parse_student(data.get('student'))
+    if error:
+        return jsonify(error=error), 400
+
+    letter = str(data.get('letter') or '').strip()
+    message = str(data.get('message') or '').strip()
+    if not letter or not message:
+        return jsonify(error='Both the current letter and a message are required.'), 400
+
+    system_prompt = f"{build_system_prompt()}\n\n# THE STUDENT\n\n{describe_student(student)}\n\n{CHAT_INSTRUCTIONS}"
+    messages = [{'role': 'system', 'content': system_prompt}]
+    for turn in (data.get('history') or [])[-MAX_HISTORY_MESSAGES:]:
+        if isinstance(turn, dict) and turn.get('role') in ('user', 'assistant') and turn.get('content'):
+            messages.append({'role': turn['role'], 'content': str(turn['content'])})
+    messages.append({'role': 'user', 'content': f"CURRENT LETTER:\n{letter}\n\nANGELICA'S MESSAGE:\n{message}"})
+
+    try:
+        response = GeminiClient().complete(messages)
+    except Exception as e:
+        app.logger.exception('Chat request failed')
+        return jsonify(error=f'Could not reach the model: {e}'), 502
+
+    return jsonify(parse_chat_response(response))
+
+
+@app.get('/api/style')
+def get_style():
+    return jsonify(content=read_writing_style())
+
+
+@app.put('/api/style')
+def save_style():
+    content = str((request.get_json(silent=True) or {}).get('content') or '')
+    if not content.strip():
+        return jsonify(error="The writing style can't be empty."), 400
+    write_writing_style(content)
+    return jsonify(content=read_writing_style())
+
+
+@app.post('/api/style/notes')
+def add_style_note_route():
+    """Add a guideline suggested in the chat to the writing style"""
+    note = str((request.get_json(silent=True) or {}).get('note') or '').strip()
+    if not note:
+        return jsonify(error='The note is empty.'), 400
+    write_writing_style(add_style_note(read_writing_style(), note))
+    return jsonify(content=read_writing_style())
+
 
 if __name__ == '__main__':
     # Get port from environment variable or default to 5000 for local development

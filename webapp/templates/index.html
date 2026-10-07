@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block body_class %}app{% endblock %}
+
+{% block nav %}
+<a href="/style" class="btn btn-ghost">Writing style</a>
+<button type="button" class="btn btn-secondary" id="newLetterBtn" hidden>Start new letter</button>
+{% endblock %}
+
+{% block content %}
+<!-- Step 1: student details -->
+<main id="formView" class="form-page" hidden>
+    <div class="card">
+        <div class="card-header">
+            <h1>New letter</h1>
+            <button type="button" class="btn btn-secondary btn-sm" id="fillTestBtn">Fill test information</button>
+        </div>
+        <p class="lede">Tell us about the student. You'll get a first draft in Angelica's voice, then you can refine it in the chat.</p>
+
+        <form id="studentForm">
+            <section class="form-section">
+                <h2>Basic information</h2>
+                <div class="grid-2">
+                    <div class="field">
+                        <label for="name">Student name</label>
+                        <input type="text" id="name" name="name" required placeholder="e.g., Jannatul Urmi">
+                    </div>
+                    <div class="field">
+                        <label for="pronouns">Pronouns <span class="optional">optional</span></label>
+                        <input type="text" id="pronouns" name="pronouns" placeholder="e.g., she/her">
+                    </div>
+                    <div class="field">
+                        <label for="area_of_interest">Area of interest</label>
+                        <input type="text" id="area_of_interest" name="area_of_interest" required placeholder="e.g., Astrophysics, Computer Science">
+                    </div>
+                    <div class="field">
+                        <label for="year">Year</label>
+                        <input type="text" id="year" name="year" required placeholder="e.g., Senior">
+                    </div>
+                    <div class="field">
+                        <label for="graduation_date">Graduation date</label>
+                        <input type="text" id="graduation_date" name="graduation_date" required placeholder="e.g., June 2027">
+                    </div>
+                </div>
+            </section>
+
+            <section class="form-section">
+                <h2>Student characteristics</h2>
+                <div class="field">
+                    <label for="academic_characteristics">Academic characteristics</label>
+                    <textarea id="academic_characteristics" name="academic_characteristics" rows="4" required placeholder="Academic performance, GPA, class rank, curiosity, specific achievements…"></textarea>
+                </div>
+                <div class="field">
+                    <label for="social_emotional_characteristics">Social/emotional characteristics</label>
+                    <textarea id="social_emotional_characteristics" name="social_emotional_characteristics" rows="4" required placeholder="Personality, leadership, communication, empathy, growth…"></textarea>
+                </div>
+                <div class="field">
+                    <label for="other_notable_aspects">Other notable aspects</label>
+                    <textarea id="other_notable_aspects" name="other_notable_aspects" rows="4" required placeholder="Special memories, life events, unique circumstances, cultural background…"></textarea>
+                </div>
+            </section>
+
+            <section class="form-section">
+                <h2>Future goals</h2>
+                <div class="field">
+                    <label for="post_secondary_goals">Post-secondary goals</label>
+                    <textarea id="post_secondary_goals" name="post_secondary_goals" rows="3" required placeholder="What does the student want to study and achieve in college?"></textarea>
+                </div>
+                <div class="field">
+                    <label for="suitability_for_goals">Why they're well suited for those goals</label>
+                    <textarea id="suitability_for_goals" name="suitability_for_goals" rows="3" required placeholder="What qualities, experiences, and skills make them a good fit?"></textarea>
+                </div>
+            </section>
+
+            <section class="form-section callout">
+                <h2>Special instructions <span class="optional">optional</span></h2>
+                <div class="field">
+                    <label for="angelica_instructions" class="sr-only">Special instructions</label>
+                    <textarea id="angelica_instructions" name="angelica_instructions" rows="3" placeholder="Anything specific for this letter: what to emphasize, phrases to include, length…"></textarea>
+                </div>
+            </section>
+
+            <div id="formError" class="alert alert-error" role="alert" hidden></div>
+
+            <button type="submit" class="btn btn-primary btn-block btn-lg" id="generateBtn">Generate letter</button>
+        </form>
+    </div>
+</main>
+
+<!-- Step 2: chat on the left, the letter on the right -->
+<main id="workspace" class="workspace" hidden>
+    <aside class="chat-panel" aria-label="Chat">
+        <details class="student-summary">
+            <summary>Student details</summary>
+            <dl id="studentDetails"></dl>
+        </details>
+
+        <div class="chat-log" id="chatLog" aria-live="polite"></div>
+
+        <form class="chat-input" id="chatForm">
+            <label for="chatMessage" class="sr-only">Message</label>
+            <textarea id="chatMessage" rows="4" placeholder="Ask for changes, e.g. “Shorten the second paragraph”"></textarea>
+            <button type="submit" class="btn btn-primary btn-icon" id="sendBtn" aria-label="Send">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+            </button>
+        </form>
+        <p class="chat-hint">Enter to send · Shift+Enter for a new line</p>
+    </aside>
+
+    <section class="letter-panel" aria-label="Letter">
+        <div class="letter-toolbar">
+            <div class="letter-heading">
+                <h1 id="letterTitle">Letter</h1>
+                <div class="version-nav">
+                    <button type="button" class="icon-btn" id="prevVersion" aria-label="Previous version">‹</button>
+                    <span id="versionLabel"></span>
+                    <button type="button" class="icon-btn" id="nextVersion" aria-label="Next version">›</button>
+                </div>
+            </div>
+            <div class="toolbar-actions">
+                <button type="button" class="btn btn-secondary" id="copyBtn">Copy</button>
+                <button type="button" class="btn btn-primary" id="downloadBtn">Download .txt</button>
+            </div>
+        </div>
+        <div class="letter-sheet">
+            <label for="letterText" class="sr-only">Letter text</label>
+            <textarea id="letterText" class="letter-text" spellcheck="true"></textarea>
+        </div>
+        <p class="letter-hint">You can edit the letter directly. The chat always works from what's shown here.</p>
+    </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% endblock %}

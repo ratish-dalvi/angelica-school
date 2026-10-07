@@ -1,8 +1,17 @@
 from flask import Flask, jsonify, render_template, request
+import logging
 import os
 import re
 import tempfile
+import openai
 from gemini_client import GeminiClient
+
+# Configure before creating the app so Flask's logger uses this format too
+logging.basicConfig(
+    level=os.environ.get('LOG_LEVEL', 'INFO').upper(),
+    format='%(asctime)s %(levelname)s %(name)s: %(message)s',
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -122,6 +131,14 @@ WHY THEY ARE WELL SUITED FOR THOSE GOALS:
     return description
 
 
+def model_error_message(error, action):
+    """A message for the page; temporary model outages get a plain-language one"""
+    # 429 rate limits, 5xx errors like 503 "high demand", timeouts, and network failures
+    if isinstance(error, (openai.RateLimitError, openai.InternalServerError, openai.APIConnectionError)):
+        return 'The AI model is busy or unreachable right now. Wait a minute and try again.'
+    return f'{action}: {error}'
+
+
 def extract_tag(text, tag):
     match = re.search(rf'<{tag}>(.*?)</{tag}>', text, re.DOTALL)
     return match.group(1).strip() if match else ''
@@ -136,6 +153,7 @@ def parse_chat_response(text):
             reply = "I've updated the letter."
         elif not style_suggestion:
             # The model ignored the format; show whatever it said as the reply
+            logger.warning('Chat response had no <reply>, <letter>, or <style_suggestion> tags; using raw text')
             reply = text.strip()
     return {
         'reply': reply,
@@ -175,8 +193,8 @@ Return only the letter, with nothing before or after it."""
             {'role': 'user', 'content': prompt},
         ])
     except Exception as e:
-        app.logger.exception('Letter generation failed')
-        return jsonify(error=f'Could not generate the letter: {e}'), 502
+        logger.exception('Letter generation failed')
+        return jsonify(error=model_error_message(e, 'Could not generate the letter')), 502
 
     return jsonify(letter=letter)
 
@@ -194,18 +212,18 @@ def api_chat():
     if not letter or not message:
         return jsonify(error='Both the current letter and a message are required.'), 400
 
-    system_prompt = f"{build_system_prompt()}\n\n# THE STUDENT\n\n{describe_student(student)}\n\n{CHAT_INSTRUCTIONS}"
-    messages = [{'role': 'system', 'content': system_prompt}]
-    for turn in (data.get('history') or [])[-MAX_HISTORY_MESSAGES:]:
-        if isinstance(turn, dict) and turn.get('role') in ('user', 'assistant') and turn.get('content'):
-            messages.append({'role': turn['role'], 'content': str(turn['content'])})
-    messages.append({'role': 'user', 'content': f"CURRENT LETTER:\n{letter}\n\nANGELICA'S MESSAGE:\n{message}"})
-
     try:
+        system_prompt = f"{build_system_prompt()}\n\n# THE STUDENT\n\n{describe_student(student)}\n\n{CHAT_INSTRUCTIONS}"
+        messages = [{'role': 'system', 'content': system_prompt}]
+        for turn in (data.get('history') or [])[-MAX_HISTORY_MESSAGES:]:
+            if isinstance(turn, dict) and turn.get('role') in ('user', 'assistant') and turn.get('content'):
+                messages.append({'role': turn['role'], 'content': str(turn['content'])})
+        messages.append({'role': 'user', 'content': f"CURRENT LETTER:\n{letter}\n\nANGELICA'S MESSAGE:\n{message}"})
+
         response = GeminiClient().complete(messages)
     except Exception as e:
-        app.logger.exception('Chat request failed')
-        return jsonify(error=f'Could not reach the model: {e}'), 502
+        logger.exception('Chat request failed')
+        return jsonify(error=model_error_message(e, 'Could not reach the model')), 502
 
     return jsonify(parse_chat_response(response))
 
@@ -220,7 +238,11 @@ def save_style():
     content = str((request.get_json(silent=True) or {}).get('content') or '')
     if not content.strip():
         return jsonify(error="The writing style can't be empty."), 400
-    write_writing_style(content)
+    try:
+        write_writing_style(content)
+    except OSError as e:
+        logger.exception('Could not save the writing style')
+        return jsonify(error=f'Could not save the writing style: {e}'), 500
     return jsonify(content=read_writing_style())
 
 
@@ -230,7 +252,11 @@ def add_style_note_route():
     note = str((request.get_json(silent=True) or {}).get('note') or '').strip()
     if not note:
         return jsonify(error='The note is empty.'), 400
-    write_writing_style(add_style_note(read_writing_style(), note))
+    try:
+        write_writing_style(add_style_note(read_writing_style(), note))
+    except OSError as e:
+        logger.exception('Could not add a note to the writing style')
+        return jsonify(error=f'Could not save the writing style: {e}'), 500
     return jsonify(content=read_writing_style())
 
 

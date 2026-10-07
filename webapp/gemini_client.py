@@ -7,7 +7,7 @@ from openai import OpenAI
 
 
 class GeminiClient:
-    def __init__(self, model_name: str = "gemini-3.8-flash"):
+    def __init__(self, model_name: str = "gemini-3.7-flash"):
         self.model = model_name
         self._client = self._build_client()
 
@@ -19,7 +19,9 @@ class GeminiClient:
         if not api_base or not api_key:
             raise ValueError("Missing required environment variables: OPENAI_API_BASE and/or OPENAI_API_KEY")
 
-        return OpenAI(base_url=api_base, api_key=api_key)
+        # The SDK retries rate limits (429) and server errors like 503 "high demand" with
+        # exponential backoff; the default of 2 retries gives up within a few seconds
+        return OpenAI(base_url=api_base, api_key=api_key, max_retries=5, timeout=120)
 
     def complete(self, messages: list[dict], temperature: float = 0.0) -> str:
         """Send a list of chat messages to Gemini and return the reply text.
